@@ -1,4 +1,4 @@
-#!/bin/zsh -e
+#!/bin/bash -e
 
 # check
 ! git status &> /dev/null && echo "请在项目文件夹中执行脚本！" && exit 1
