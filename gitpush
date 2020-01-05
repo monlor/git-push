@@ -1,0 +1,13 @@
+#!/bin/bash -e
+
+! git status &> /dev/null && echo "请在项目文件夹中执行脚本！" && exit 1
+# git远程地址
+git_remote_url=$(git remote -v | grep "(push)" | head -1 | awk '{print $2}')
+# 项目名称
+project_name=$(echo "$git_remote_url" | awk -F '/' '{print$NF}' | sed -e 's/.git//g')
+# 清除系统自动生产的文件
+find . -name '.DS_Store' | xargs rm -rf
+# begin to push
+echo "Push [${project_name}] To [${git_remote_url}]."
+git commit -a -m "`date "+%Y-%m-%d %H:%M:%S"`"
+git push -u origin master
