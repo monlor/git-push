@@ -21,5 +21,5 @@ git config user.email ${GIT_USER_EMAIL}
 # begin to push
 echo "Push [${project_name}] To [${git_remote_url}]."
 git add "${commit_file:-.}"
-git commit -m "${commit_msg:-${now_date}}"
-git push -u origin master
+git commit -m "${commit_msg:-${now_date}}" || return 0
+git push

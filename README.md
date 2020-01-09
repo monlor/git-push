@@ -1,3 +1,7 @@
+### git-push
+
+[![GitHub release](https://img.shields.io/github/release/monlor/git-push.svg)](https://github.com/monlor/git-push/releases)
+
 ### Install 
 
 ```
@@ -9,13 +13,14 @@ $ brew install git-push
 
 > in your project directory
 
-* add GIT_USER_NAME and GIT_USER_EMAIL to Environment Variables
+* Add GIT_USER_NAME and GIT_USER_EMAIL to Environment Variables
 
-* gitpush [commit message] [commmit file]
+* `gitpush [commit message] [commmit file]`
 
 * Example:
 
 ```
 $ gitpush "init project" ./
+
 $ gitpush
 ```
