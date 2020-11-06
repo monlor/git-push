@@ -1,25 +1,120 @@
-#!/bin/bash -e
+#!/bin/bash
 
-commit_msg="${1}"
-commit_file="${2}"
-now_date="$(date "+%Y-%m-%d %H:%M:%S")"
+NOW_DATE="$(date "+%Y-%m-%d %H:%M:%S")"
+
+NOW_DATE_NU="$(date "+%Y%m%d%H%M%S")"
+
+CUR_BRANCH="$(git branch | awk  '$1 == "*"{print $2}')"
+
+GIT_REMOTE="${GIT_REMOTE:-origin}"
+
 # check
 ! git status &> /dev/null && echo "请在项目文件夹中执行脚本！" && exit 1
-if [ -z "${GIT_USER_NAME}" -o -z "${GIT_USER_EMAIL}" ]; then
-	echo "GIT_USER_NAME and GIT_USER_EMAIL is required!"
-	exit 1
-fi
+
 # git远程地址
-git_remote_url=$(git remote -v | grep "(push)" | head -1 | awk '{print $2}')
+GIT_REMOTE_URL=$(git remote -v | grep "${GIT_REMOTE}" | head -1 | awk '{print $2}')
+
 # 项目名称
-project_name=$(echo "$git_remote_url" | awk -F '/' '{print$NF}' | sed -e 's/.git//g')
-# 清除系统自动生产的文件
-find . -name '.DS_Store' | xargs rm -rf
-# init user
-git config user.name ${GIT_USER_NAME}
-git config user.email ${GIT_USER_EMAIL}
-# begin to push
-echo "Push [${project_name}] To [${git_remote_url}]."
-git add "${commit_file:-.}"
-git commit -m "${commit_msg:-${now_date}}" || return 0
-git push
+PROJECT_NAME=$(echo "$GIT_REMOTE_URL" | awk -F '/' '{print$NF}' | sed -e 's/.git//g')
+
+GIT_USER_NAME=""
+
+GIT_USER_EMAIL=""
+
+sha256sh() {
+	(hash sha256sum &> /dev/null && sha256sum $1 || shasum -a 256 $1) | awk '{print$1}'
+}
+
+push() {
+
+	commit "$@"
+	git push ${GIT_REMOTE} ${CUR_BRANCH}
+
+}
+
+commit() {
+	local commit_msg="${1}"
+	local commit_file="${2}"
+	# 清除系统自动生产的文件
+	find . -name '.DS_Store' | xargs rm -rf
+	# init user
+	git config --local user.name ${GIT_USER_NAME}
+	git config --local user.email ${GIT_USER_EMAIL}
+	# begin to push
+	echo "Push [${PROJECT_NAME}] To [${GIT_REMOTE_URL}]."
+	git add "${commit_file:-.}"
+	git commit -m "${commit_msg:-${NOW_DATE}}"
+}
+
+tag() {
+
+	local tag_name
+
+	if [ -n "$1" ]; then
+		tag_name="${1}-${NOW_DATE_NU}"
+	else
+		tag_name="${CUR_BRANCH}-${NOW_DATE_NU}"
+	fi
+
+	git tag "${tag_name}"
+
+	git push ${GIT_REMOTE} ${tag_name}
+
+}
+
+github_release() {
+	[ -z "$1" ] && echo "tag不能为空！" && exit 1 
+	github-release release \
+    --user ${GIT_USER_NAME} \
+    --repo ${PROJECT_NAME} \
+    --tag $1 \
+    --name $1 &> /dev/null
+   [ $? -ne 0 ] && echo "发布版本失败，可能已存在该版本！"
+   echo "https://github.com/monlor/hcf-pack/archive/${1}.tar.gz"
+   curl -sLO https://github.com/monlor/hcf-pack/archive/${1}.tar.gz
+   [ $? -eq 0 ] && sha256sh ./${1}.tar.gz || echo "下载源代码失败！"
+   rm -rf ${1}.tar.gz
+ }
+
+match_git_user() {
+	for GIT_REPO_TO_USER in ${GIT_REPO_TO_USERS[@]}; do
+		[ -z "${GIT_REPO_TO_USER}" ] && continue
+		git_repo=`echo ${GIT_REPO_TO_USER} | cut -d',' -f1`
+		git_user=`echo ${GIT_REPO_TO_USER} | cut -d',' -f2`
+		git_email=`echo ${GIT_REPO_TO_USER} | cut -d',' -f3`
+		if [[ "${GIT_REMOTE_URL}" =~ "${git_repo}" ]]; then
+			GIT_USER_NAME="${git_user}"
+			GIT_USER_EMAIL="${git_email}"
+		fi
+	done
+}
+
+main() {
+
+	match_git_user
+
+	if [ -z "${GIT_USER_NAME}" -o -z "${GIT_USER_EMAIL}" ]; then
+		echo "${GIT_REMOTE_URL}未配置用户映射！"
+		exit 1
+	fi
+
+	case "$1" in
+	"tag") 
+		shift 1
+		tag "$@"
+		;;
+	"release")
+		shift 1
+		github_release "$@"
+		;;
+	"commit")
+		shift 1
+		commit "$@"
+		;;
+	*) 
+		push "$@"
+		;;
+	esac
+}
+
+main "$@"
